@@ -1,0 +1,468 @@
+{
+  "name": "bitbucket-dc-pr",
+  "displayName": "Bitbucket DC Pull Requests",
+  "description": "View, create and edit pull request comments (inline and general) for Bitbucket Data Center / Server directly in the IDE.",
+  "version": "0.2.1",
+  "publisher": "tipsport-local",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "bitbucket",
+    "pull request",
+    "code review",
+    "data center",
+    "comments"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:.git",
+    "onFileSystem:bbpr",
+    "onFileSystem:bbpr-overview"
+  ],
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "contributes": {
+    "configuration": {
+      "title": "Bitbucket DC Pull Requests",
+      "properties": {
+        "bitbucketPr.serverUrl": {
+          "type": "string",
+          "default": "https://git.tipsport.it",
+          "description": "Bitbucket Data Center base URL. Used when the host cannot be derived from the git remote."
+        },
+        "bitbucketPr.refreshIntervalSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 0,
+          "description": "How often the current pull request and its comments are refreshed from the server. 0 disables polling."
+        },
+        "bitbucketPr.readOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Force read-only mode: comments are shown but cannot be created, edited, deleted or resolved."
+        },
+        "bitbucketPr.showOnLocalFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show pull request comment threads on the local files of the checked-out branch (in addition to the PR diff view)."
+        },
+        "bitbucketPr.contextLines": {
+          "type": "number",
+          "default": 10,
+          "minimum": 0,
+          "description": "Number of context lines requested around each diff hunk."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "bitbucketPr.signIn",
+        "title": "Sign In…",
+        "category": "Bitbucket PR",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "bitbucketPr.signOut",
+        "title": "Sign Out",
+        "category": "Bitbucket PR",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "bitbucketPr.refresh",
+        "title": "Refresh",
+        "category": "Bitbucket PR",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "bitbucketPr.selectRepository",
+        "title": "Select Repository…",
+        "category": "Bitbucket PR",
+        "icon": "$(repo)"
+      },
+      {
+        "command": "bitbucketPr.openInBrowser",
+        "title": "Open Pull Request in Browser",
+        "category": "Bitbucket PR",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "bitbucketPr.openOverview",
+        "title": "Open Pull Request Overview",
+        "category": "Bitbucket PR",
+        "icon": "$(git-pull-request)"
+      },
+      {
+        "command": "bitbucketPr.openDiff",
+        "title": "Open Pull Request Diff",
+        "category": "Bitbucket PR",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "bitbucketPr.openLocalFile",
+        "title": "Open Local File",
+        "category": "Bitbucket PR",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "bitbucketPr.addGeneralComment",
+        "title": "Add General Comment…",
+        "category": "Bitbucket PR",
+        "icon": "$(comment-add)"
+      },
+      {
+        "command": "bitbucketPr.addGeneralTask",
+        "title": "Add General Task…",
+        "category": "Bitbucket PR",
+        "icon": "$(tasklist)"
+      },
+      {
+        "command": "bitbucketPr.createThread",
+        "title": "Create Comment",
+        "category": "Bitbucket PR",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "command": "bitbucketPr.createTask",
+        "title": "Create Task",
+        "category": "Bitbucket PR",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "command": "bitbucketPr.replyThread",
+        "title": "Reply",
+        "category": "Bitbucket PR",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "command": "bitbucketPr.replyTask",
+        "title": "Reply as Task",
+        "category": "Bitbucket PR",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "command": "bitbucketPr.editComment",
+        "title": "Edit",
+        "category": "Bitbucket PR",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "bitbucketPr.deleteComment",
+        "title": "Delete",
+        "category": "Bitbucket PR",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "bitbucketPr.saveComment",
+        "title": "Save",
+        "category": "Bitbucket PR"
+      },
+      {
+        "command": "bitbucketPr.cancelEditComment",
+        "title": "Cancel",
+        "category": "Bitbucket PR"
+      },
+      {
+        "command": "bitbucketPr.resolveTask",
+        "title": "Resolve Task",
+        "category": "Bitbucket PR",
+        "icon": "$(check)"
+      },
+      {
+        "command": "bitbucketPr.reopenTask",
+        "title": "Reopen Task",
+        "category": "Bitbucket PR",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "bitbucketPr.copyCommentLink",
+        "title": "Copy Link",
+        "category": "Bitbucket PR",
+        "icon": "$(link)"
+      },
+      {
+        "command": "bitbucketPr.openCommentInBrowser",
+        "title": "Open in Browser",
+        "category": "Bitbucket PR",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "bitbucketPr.goToComment",
+        "title": "Go to Comment",
+        "category": "Bitbucket PR"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "bitbucketPr",
+          "title": "Bitbucket PR",
+          "icon": "media/activity-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "bitbucketPr": [
+        {
+          "id": "bitbucketPr.prView",
+          "name": "Pull Request",
+          "icon": "media/activity-icon.svg",
+          "contextualTitle": "Bitbucket Pull Request"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "bitbucketPr.prView",
+        "contents": "No Bitbucket repository detected in this workspace.\nThe extension looks for a git remote pointing at a Bitbucket Data Center server.",
+        "when": "!bitbucketPr.hasRepo"
+      },
+      {
+        "view": "bitbucketPr.prView",
+        "contents": "Sign in with a Bitbucket HTTP access token to see the pull request for the current branch.\n[Sign In](command:bitbucketPr.signIn)",
+        "when": "bitbucketPr.hasRepo && !bitbucketPr.signedIn"
+      },
+      {
+        "view": "bitbucketPr.prView",
+        "contents": "No open pull request found for the current branch.\n[Refresh](command:bitbucketPr.refresh)",
+        "when": "bitbucketPr.hasRepo && bitbucketPr.signedIn && !bitbucketPr.hasPr && !bitbucketPr.loading"
+      },
+      {
+        "view": "bitbucketPr.prView",
+        "contents": "Loading pull request…",
+        "when": "bitbucketPr.hasRepo && bitbucketPr.signedIn && !bitbucketPr.hasPr && bitbucketPr.loading"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "bitbucketPr.createThread",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.createTask",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.replyThread",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.replyTask",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.editComment",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.saveComment",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.resolveTask",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.reopenTask",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.copyCommentLink",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.openCommentInBrowser",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.goToComment",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.openDiff",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.openLocalFile",
+          "when": "false"
+        },
+        {
+          "command": "bitbucketPr.openInBrowser",
+          "when": "bitbucketPr.hasPr"
+        },
+        {
+          "command": "bitbucketPr.openOverview",
+          "when": "bitbucketPr.hasPr"
+        },
+        {
+          "command": "bitbucketPr.addGeneralComment",
+          "when": "bitbucketPr.hasPr && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.addGeneralTask",
+          "when": "bitbucketPr.hasPr && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.signOut",
+          "when": "bitbucketPr.signedIn"
+        },
+        {
+          "command": "bitbucketPr.selectRepository",
+          "when": "bitbucketPr.hasRepo"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "bitbucketPr.refresh",
+          "when": "view == bitbucketPr.prView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "bitbucketPr.addGeneralTask",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasPr && !bitbucketPr.readOnly",
+          "group": "navigation@2"
+        },
+        {
+          "command": "bitbucketPr.addGeneralComment",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasPr && !bitbucketPr.readOnly",
+          "group": "navigation@3"
+        },
+        {
+          "command": "bitbucketPr.openInBrowser",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasPr",
+          "group": "navigation@4"
+        },
+        {
+          "command": "bitbucketPr.signOut",
+          "when": "view == bitbucketPr.prView && bitbucketPr.signedIn",
+          "group": "2_account"
+        },
+        {
+          "command": "bitbucketPr.signIn",
+          "when": "view == bitbucketPr.prView",
+          "group": "2_account"
+        },
+        {
+          "command": "bitbucketPr.selectRepository",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasRepo",
+          "group": "1_repo"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "bitbucketPr.openLocalFile",
+          "when": "view == bitbucketPr.prView && viewItem == bitbucketPr.file",
+          "group": "inline"
+        },
+        {
+          "command": "bitbucketPr.openInBrowser",
+          "when": "view == bitbucketPr.prView && viewItem == bitbucketPr.header",
+          "group": "inline"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "bitbucketPr.createTask",
+          "group": "inline@1",
+          "when": "commentController == bitbucketPr && commentThreadIsEmpty && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.createThread",
+          "group": "inline@2",
+          "when": "commentController == bitbucketPr && commentThreadIsEmpty && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.replyTask",
+          "group": "inline@1",
+          "when": "commentController == bitbucketPr && !commentThreadIsEmpty && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.replyThread",
+          "group": "inline@2",
+          "when": "commentController == bitbucketPr && !commentThreadIsEmpty && !bitbucketPr.readOnly"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "bitbucketPr.openCommentInBrowser",
+          "group": "navigation@2",
+          "when": "commentController == bitbucketPr && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "bitbucketPr.resolveTask",
+          "group": "inline@1",
+          "when": "commentController == bitbucketPr && comment =~ /canResolveTask/ && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.reopenTask",
+          "group": "inline@1",
+          "when": "commentController == bitbucketPr && comment =~ /canReopenTask/ && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.editComment",
+          "group": "inline@2",
+          "when": "commentController == bitbucketPr && comment =~ /canEdit/ && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.deleteComment",
+          "group": "inline@3",
+          "when": "commentController == bitbucketPr && comment =~ /canDelete/ && !bitbucketPr.readOnly"
+        },
+        {
+          "command": "bitbucketPr.copyCommentLink",
+          "group": "inline@4",
+          "when": "commentController == bitbucketPr"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "bitbucketPr.saveComment",
+          "group": "inline@1",
+          "when": "commentController == bitbucketPr"
+        },
+        {
+          "command": "bitbucketPr.cancelEditComment",
+          "group": "inline@2",
+          "when": "commentController == bitbucketPr"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc --noEmit -p ./",
+    "test": "npm run typecheck && tsc -p ./tsconfig.test.json && mocha --ui bdd out-test/test/**/*.test.js",
+    "lint": "eslint src --ext ts",
+    "package": "npm run test && vsce package --no-dependencies --allow-missing-repository"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.3.2",
+    "esbuild": "^0.25.0",
+    "mocha": "^11.1.0",
+    "typescript": "^5.7.3"
+  }
+}
