@@ -10,6 +10,7 @@ import type { CommentSeverity } from '../bitbucket/types';
 import { isResolved, isResolvedTask, isTask } from '../core/commentState';
 import { flattenThread, type PrModel } from '../pr/prModel';
 import type { PrResolver } from '../pr/prResolver';
+import { ContextKey, setContext } from '../util/contextKeys';
 import { log } from '../util/logger';
 
 const CONTROLLER_ID = 'bitbucketPr';
@@ -73,6 +74,8 @@ interface ThreadMeta {
   /** Repository path for inline threads; undefined for general comments. */
   path?: string;
   side?: Side;
+  /** Signature of the last rendered state; used to skip no-op widget updates. */
+  signature?: string;
 }
 
 type DocKind =
@@ -113,6 +116,7 @@ export class PrCommentController implements vscode.Disposable {
   private model: PrModel | undefined;
   private modelListener: vscode.Disposable | undefined;
   private syncScheduled = false;
+  private rangesDirty = false;
 
   constructor(
     resolver: PrResolver,
@@ -120,21 +124,24 @@ export class PrCommentController implements vscode.Disposable {
     private readonly access: AccessState,
   ) {
     this.controller = vscode.comments.createCommentController(CONTROLLER_ID, 'Bitbucket Pull Request');
-    this.controller.options = { placeHolder: 'Comment on the pull request…', prompt: 'Comments are posted to Bitbucket immediately.' };
-    this.controller.commentingRangeProvider = {
-      provideCommentingRanges: (document) => this.provideCommentingRanges(document),
-    };
+    this.controller.options = { placeHolder: 'Write a comment or task…' };
+    void this.updateInlineCommentingContext();
+    this.refreshCommentingRanges();
     this.disposables.push(
       this.controller,
       resolver.onDidChangePr((m) => this.setModel(m)),
-      access.onDidChange(() => this.scheduleSync()),
-      repoContext.onDidChangeWorkingTree(() => this.scheduleSync()),
+      access.onDidChange(() => this.scheduleSync(false, true)),
+      repoContext.onDidChangeWorkingTree(() => this.scheduleSync(false, true)),
       vscode.workspace.onDidOpenTextDocument(() => this.scheduleSync()),
       vscode.workspace.onDidCloseTextDocument((doc) => this.disposeThreadsFor(doc.uri)),
       vscode.window.onDidChangeVisibleTextEditors(() => this.scheduleSync()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('bitbucketPr.showOnLocalFiles')) {
-          this.scheduleSync(true);
+          this.scheduleSync(true, true);
+        }
+        if (e.affectsConfiguration('bitbucketPr.enableInlineCommenting')) {
+          void this.updateInlineCommentingContext();
+          this.scheduleSync(false, true);
         }
       }),
     );
@@ -149,30 +156,60 @@ export class PrCommentController implements vscode.Disposable {
     this.model = model;
     this.attemptedDiffLoads.clear();
     if (model) {
-      this.modelListener = model.onDidChange(() => this.scheduleSync());
+      this.modelListener = model.onDidChange(() => this.scheduleSync(false, !model.loading));
     }
-    this.scheduleSync(true);
+    this.scheduleSync(true, true);
   }
 
-  private scheduleSync(full = false): void {
+  /**
+   * @param full drop all threads first (document kinds may have changed)
+   * @param rangesChanged inputs of the commenting-range provider changed; re-evaluate the `+` gutter
+   */
+  private scheduleSync(full = false, rangesChanged = false): void {
     if (full) {
       // Drop threads whose document kind might have changed.
       for (const key of [...this.threadsByDoc.keys()]) {
         this.disposeThreadsFor(vscode.Uri.parse(key));
       }
     }
+    this.rangesDirty ||= rangesChanged;
     if (this.syncScheduled) {
       return;
     }
     this.syncScheduled = true;
     setTimeout(() => {
       this.syncScheduled = false;
-      void this.syncAll();
+      const refreshRanges = this.rangesDirty;
+      this.rangesDirty = false;
+      void this.syncAll().finally(() => {
+        if (refreshRanges) {
+          this.refreshCommentingRanges();
+        }
+      });
     }, 50);
   }
 
   private get canWrite(): boolean {
     return !this.access.readOnly;
+  }
+
+  private get inlineCommentingEnabled(): boolean {
+    return vscode.workspace.getConfiguration('bitbucketPr').get<boolean>('enableInlineCommenting', true);
+  }
+
+  private updateInlineCommentingContext(): Thenable<void> {
+    return setContext(ContextKey.inlineCommenting, this.inlineCommentingEnabled);
+  }
+
+  /**
+   * VS Code evaluates commenting ranges when a document opens and re-evaluates them only when the
+   * comment controller changes. Re-assigning the provider forces a re-evaluation in all visible editors,
+   * which is needed once the PR model has loaded, the token/access state changed or HEAD moved.
+   */
+  private refreshCommentingRanges(): void {
+    this.controller.commentingRangeProvider = {
+      provideCommentingRanges: (document) => this.provideCommentingRanges(document),
+    };
   }
 
   // ---------------------------------------------------------------- classification
@@ -236,7 +273,7 @@ export class PrCommentController implements vscode.Disposable {
   // ---------------------------------------------------------------- commenting ranges
 
   private async provideCommentingRanges(document: vscode.TextDocument): Promise<vscode.Range[]> {
-    if (!this.canWrite) {
+    if (!this.canWrite || !this.inlineCommentingEnabled) {
       return [];
     }
     const kind = this.classify(document.uri);
@@ -400,33 +437,42 @@ export class PrCommentController implements vscode.Disposable {
 
   private updateThread(thread: vscode.CommentThread, model: PrModel, d: DesiredThread, isNew = false): void {
     const resolved = isResolved(d.root);
-    this.meta.set(thread, { model, root: d.root, path: d.path, side: d.side });
+    const previousMeta = this.meta.get(thread);
+    this.meta.set(thread, { model, root: d.root, path: d.path, side: d.side, signature: previousMeta?.signature });
     const previous = new Map<number, BbComment>();
     for (const c of thread.comments) {
       if (c instanceof BbComment) {
         previous.set(c.data.id, c);
       }
     }
-    const comments = flattenThread(d.root).map((c) => {
-      const bb = new BbComment(c, d.path, c.id === d.root.id, thread, this.canWrite);
-      const prev = previous.get(c.id);
-      if (prev && prev.mode === vscode.CommentMode.Editing) {
-        bb.mode = vscode.CommentMode.Editing;
-        bb.body = prev.body;
-      }
-      return bb;
-    });
+    // Never rebuild a thread while the user is editing one of its comments.
+    if (!isNew && [...previous.values()].some((c) => c.mode === vscode.CommentMode.Editing)) {
+      return;
+    }
+    const flat = flattenThread(d.root);
+    const signature = JSON.stringify([
+      this.canWrite,
+      d.label,
+      d.range.start.line,
+      d.range.end.line,
+      flat.map((c) => [c.id, c.version, c.text, c.state, c.severity, c.threadResolved, c.updatedDate, c.permittedOperations]),
+    ]);
+    if (!isNew && previousMeta?.signature === signature) {
+      return; // nothing changed – do not touch the widget (re-rendering steals focus)
+    }
+    this.meta.get(thread)!.signature = signature;
+
     if (!thread.range || !thread.range.isEqual(d.range)) {
       thread.range = d.range;
     }
-    thread.comments = comments;
+    thread.comments = flat.map((c) => new BbComment(c, d.path, c.id === d.root.id, thread, this.canWrite));
     thread.canReply = this.canWrite;
     // Thread state is only meaningful for tasks; plain comment threads are collapsed when resolved on the server.
     thread.state = isTask(d.root) ? (resolved ? vscode.CommentThreadState.Resolved : vscode.CommentThreadState.Unresolved) : undefined;
     thread.contextValue = isTask(d.root) ? 'task' : 'comment';
-    const kind = isTask(d.root) ? (resolved ? 'Task resolved' : 'Task') : resolved ? 'Resolved' : undefined;
-    const label = [kind, d.label].filter(Boolean).join(' · ');
-    thread.label = label || undefined;
+    // Always set a label: without one VS Code shows "Start discussion" even for existing threads.
+    const kind = isTask(d.root) ? (resolved ? 'Task · resolved' : 'Task') : resolved ? 'Comment · resolved' : 'Comment';
+    thread.label = [kind, d.label].filter(Boolean).join(' · ');
     if (isNew) {
       thread.collapsibleState = resolved ? vscode.CommentThreadCollapsibleState.Collapsed : vscode.CommentThreadCollapsibleState.Expanded;
     }

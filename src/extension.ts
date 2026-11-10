@@ -117,6 +117,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // ---- navigation
   register('bitbucketPr.refresh', () => resolver.refresh());
 
+  const setInlineCommenting = (enabled: boolean) =>
+    vscode.workspace.getConfiguration('bitbucketPr').update('enableInlineCommenting', enabled, vscode.ConfigurationTarget.Global);
+  register('bitbucketPr.enableInlineCommenting', () => setInlineCommenting(true));
+  register('bitbucketPr.disableInlineCommenting', () => setInlineCommenting(false));
+
   register('bitbucketPr.selectRepository', async () => {
     const repos = repoContext.allRepos;
     if (repos.length === 0) {

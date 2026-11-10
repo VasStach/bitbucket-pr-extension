@@ -49,7 +49,15 @@ Reload the window afterwards.
 | `bitbucketPr.refreshIntervalSeconds` | `60` | Polling interval; `0` disables polling. |
 | `bitbucketPr.readOnly` | `false` | Force read-only mode. |
 | `bitbucketPr.showOnLocalFiles` | `true` | Show threads on local files. |
+| `bitbucketPr.enableInlineCommenting` | `true` | Offer the `+` gutter for new inline comments/tasks (toggle button in the view toolbar). Off hides the gutter range markers; existing threads stay visible. |
 | `bitbucketPr.contextLines` | `10` | Context lines requested around diff hunks. |
+
+## Editor-side appearance
+
+The comment widgets are rendered by the editor, not by the extension. Useful editor settings:
+
+- `comments.maxHeight: false` – show long comments in full instead of an inner scrollbar.
+- `workbench.colorCustomizations` → `"editorGutter.commentRangeForeground": "#00000000"` – hide the permanent commenting-range bar in the gutter while keeping the hover `+`.
 
 ## Development
 

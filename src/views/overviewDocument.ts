@@ -22,9 +22,18 @@ export class OverviewDocumentProvider implements vscode.TextDocumentContentProvi
     this.watch(resolver.current);
   }
 
+  private lastRendered: string | undefined;
+
   private watch(model: PrModel | undefined): void {
     this.modelListener?.dispose();
-    this.modelListener = model?.onDidChange(() => this._onDidChange.fire(uriFor(model)));
+    this.lastRendered = undefined;
+    this.modelListener = model?.onDidChange(() => {
+      // Only re-render when the visible content actually changed (re-rendering disturbs focus / scroll).
+      const next = renderOverview(model.pr, model.webUrl, model.changes.length);
+      if (next !== this.lastRendered) {
+        this._onDidChange.fire(uriFor(model));
+      }
+    });
   }
 
   provideTextDocumentContent(uri: vscode.Uri): string {
@@ -33,7 +42,8 @@ export class OverviewDocumentProvider implements vscode.TextDocumentContentProvi
     if (!parts || !model || model.id !== parts.prId) {
       return `# Pull request #${parts?.prId ?? '?'}\n\nThis pull request is not the one associated with the current branch.\n`;
     }
-    return renderOverview(model.pr, model.webUrl, model.changes.length);
+    this.lastRendered = renderOverview(model.pr, model.webUrl, model.changes.length);
+    return this.lastRendered;
   }
 
   async open(model: PrModel, preserveFocus = false): Promise<void> {

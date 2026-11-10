@@ -7,6 +7,7 @@ export const ContextKey = {
   hasPr: 'bitbucketPr.hasPr',
   loading: 'bitbucketPr.loading',
   readOnly: 'bitbucketPr.readOnly',
+  inlineCommenting: 'bitbucketPr.inlineCommenting',
 } as const;
 
 export type ContextKeyName = (typeof ContextKey)[keyof typeof ContextKey];

@@ -2,7 +2,7 @@
   "name": "bitbucket-dc-pr",
   "displayName": "Bitbucket DC Pull Requests",
   "description": "View, create and edit pull request comments (inline and general) for Bitbucket Data Center / Server directly in the IDE.",
-  "version": "0.2.1",
+  "version": "0.2.4",
   "publisher": "tipsport-local",
   "license": "MIT",
   "private": true,
@@ -59,6 +59,11 @@
           "default": 10,
           "minimum": 0,
           "description": "Number of context lines requested around each diff hunk."
+        },
+        "bitbucketPr.enableInlineCommenting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Offer the \"+\" gutter action for creating inline comments and tasks. When disabled, existing threads are still shown but the commenting-range gutter markers disappear."
         }
       }
     },
@@ -197,6 +202,18 @@
         "command": "bitbucketPr.goToComment",
         "title": "Go to Comment",
         "category": "Bitbucket PR"
+      },
+      {
+        "command": "bitbucketPr.disableInlineCommenting",
+        "title": "Disable Inline Commenting (hide \"+\" gutter)",
+        "category": "Bitbucket PR",
+        "icon": "$(comment-draft)"
+      },
+      {
+        "command": "bitbucketPr.enableInlineCommenting",
+        "title": "Enable Inline Commenting (show \"+\" gutter)",
+        "category": "Bitbucket PR",
+        "icon": "$(comment-unresolved)"
       }
     ],
     "viewsContainers": {
@@ -325,6 +342,14 @@
         {
           "command": "bitbucketPr.selectRepository",
           "when": "bitbucketPr.hasRepo"
+        },
+        {
+          "command": "bitbucketPr.disableInlineCommenting",
+          "when": "bitbucketPr.inlineCommenting"
+        },
+        {
+          "command": "bitbucketPr.enableInlineCommenting",
+          "when": "!bitbucketPr.inlineCommenting"
         }
       ],
       "view/title": [
@@ -346,7 +371,7 @@
         {
           "command": "bitbucketPr.openInBrowser",
           "when": "view == bitbucketPr.prView && bitbucketPr.hasPr",
-          "group": "navigation@4"
+          "group": "navigation@5"
         },
         {
           "command": "bitbucketPr.signOut",
@@ -362,6 +387,16 @@
           "command": "bitbucketPr.selectRepository",
           "when": "view == bitbucketPr.prView && bitbucketPr.hasRepo",
           "group": "1_repo"
+        },
+        {
+          "command": "bitbucketPr.disableInlineCommenting",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasPr && !bitbucketPr.readOnly && bitbucketPr.inlineCommenting",
+          "group": "navigation@4"
+        },
+        {
+          "command": "bitbucketPr.enableInlineCommenting",
+          "when": "view == bitbucketPr.prView && bitbucketPr.hasPr && !bitbucketPr.readOnly && !bitbucketPr.inlineCommenting",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
