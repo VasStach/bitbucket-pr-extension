@@ -3,9 +3,9 @@ import { parseBitbucketRemote } from '../core/remoteParser';
 
 describe('remoteParser.parseBitbucketRemote', () => {
   it('parses HTTPS scm clone URLs', () => {
-    assert.deepStrictEqual(parseBitbucketRemote('https://git.tipsport.it/scm/ml-services/esports.git'), {
-      host: 'git.tipsport.it',
-      baseUrl: 'https://git.tipsport.it',
+    assert.deepStrictEqual(parseBitbucketRemote('https://bitbucket.example.com/scm/ml-services/esports.git'), {
+      host: 'bitbucket.example.com',
+      baseUrl: 'https://bitbucket.example.com',
       projectKey: 'ML-SERVICES',
       repoSlug: 'esports',
     });
@@ -21,33 +21,33 @@ describe('remoteParser.parseBitbucketRemote', () => {
   });
 
   it('parses personal repositories', () => {
-    const r = parseBitbucketRemote('https://git.tipsport.it/scm/~vaclav.stach/sandbox.git');
-    assert.strictEqual(r?.projectKey, '~VACLAV.STACH');
+    const r = parseBitbucketRemote('https://bitbucket.example.com/scm/~alice/sandbox.git');
+    assert.strictEqual(r?.projectKey, '~ALICE');
     assert.strictEqual(r?.repoSlug, 'sandbox');
   });
 
   it('parses ssh:// URLs and uses the fallback base URL for a matching host', () => {
-    assert.deepStrictEqual(parseBitbucketRemote('ssh://git@git.tipsport.it:7999/ml-services/esports.git', 'https://git.tipsport.it'), {
-      host: 'git.tipsport.it',
-      baseUrl: 'https://git.tipsport.it',
+    assert.deepStrictEqual(parseBitbucketRemote('ssh://git@bitbucket.example.com:7999/ml-services/esports.git', 'https://bitbucket.example.com'), {
+      host: 'bitbucket.example.com',
+      baseUrl: 'https://bitbucket.example.com',
       projectKey: 'ML-SERVICES',
       repoSlug: 'esports',
     });
   });
 
   it('parses scp-like URLs', () => {
-    assert.deepStrictEqual(parseBitbucketRemote('git@git.tipsport.it:ML-SERVICES/esports.git'), {
-      host: 'git.tipsport.it',
-      baseUrl: 'https://git.tipsport.it',
+    assert.deepStrictEqual(parseBitbucketRemote('git@bitbucket.example.com:ML-SERVICES/esports.git'), {
+      host: 'bitbucket.example.com',
+      baseUrl: 'https://bitbucket.example.com',
       projectKey: 'ML-SERVICES',
       repoSlug: 'esports',
     });
   });
 
   it('parses web browse URLs', () => {
-    assert.deepStrictEqual(parseBitbucketRemote('https://git.tipsport.it/projects/ML-SERVICES/repos/esports/browse'), {
-      host: 'git.tipsport.it',
-      baseUrl: 'https://git.tipsport.it',
+    assert.deepStrictEqual(parseBitbucketRemote('https://bitbucket.example.com/projects/ML-SERVICES/repos/esports/browse'), {
+      host: 'bitbucket.example.com',
+      baseUrl: 'https://bitbucket.example.com',
       projectKey: 'ML-SERVICES',
       repoSlug: 'esports',
     });

@@ -1,11 +1,11 @@
 import * as vscode from 'vscode';
 import type { ChangedFile, PrModel } from '../pr/prModel';
 import { log } from '../util/logger';
-import { makePrFileUri } from './prUris';
+import { makePrFileUri, prIdentityForModel } from './prUris';
 
 /** Opens the PR diff (target version vs. source version) of a changed file in the diff editor. */
 export async function openPrDiff(model: PrModel, file: ChangedFile, options: { line?: number; preserveFocus?: boolean } = {}): Promise<void> {
-  const coords = { baseUrl: model.client.baseUrl, projectKey: model.repo.projectKey, repoSlug: model.repo.repoSlug, prId: model.id };
+  const coords = prIdentityForModel(model);
 
   let fromHash = model.targetCommit;
   let toHash = model.sourceCommit;

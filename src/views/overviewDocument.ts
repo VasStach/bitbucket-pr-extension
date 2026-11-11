@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { PullRequest } from '../bitbucket/types';
-import { makeOverviewUri, parseOverviewUri, PR_OVERVIEW_SCHEME } from '../diff/prUris';
+import { isOverviewUriForModel, makeOverviewUri, parseOverviewUri, prIdentityForModel, PR_OVERVIEW_SCHEME } from '../diff/prUris';
 import type { PrModel } from '../pr/prModel';
 import type { PrResolver } from '../pr/prResolver';
 
@@ -39,7 +39,7 @@ export class OverviewDocumentProvider implements vscode.TextDocumentContentProvi
   provideTextDocumentContent(uri: vscode.Uri): string {
     const parts = parseOverviewUri(uri);
     const model = this.resolver.current;
-    if (!parts || !model || model.id !== parts.prId) {
+    if (!parts || !model || !isOverviewUriForModel(parts, model)) {
       return `# Pull request #${parts?.prId ?? '?'}\n\nThis pull request is not the one associated with the current branch.\n`;
     }
     this.lastRendered = renderOverview(model.pr, model.webUrl, model.changes.length);
@@ -59,7 +59,7 @@ export class OverviewDocumentProvider implements vscode.TextDocumentContentProvi
 }
 
 export function uriFor(model: PrModel): vscode.Uri {
-  return makeOverviewUri({ baseUrl: model.client.baseUrl, projectKey: model.repo.projectKey, repoSlug: model.repo.repoSlug, prId: model.id });
+  return makeOverviewUri(prIdentityForModel(model));
 }
 
 function renderOverview(pr: PullRequest, url: string, changedFiles: number): string {

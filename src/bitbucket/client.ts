@@ -35,7 +35,7 @@ export interface RepoCoords {
 }
 
 export interface ClientOptions {
-  /** e.g. https://git.tipsport.it (no trailing slash). */
+  /** e.g. https://bitbucket.example.com (no trailing slash). */
   baseUrl: string;
   /** Returns the current token or undefined when signed out. */
   getToken: () => Promise<string | undefined>;

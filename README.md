@@ -12,7 +12,7 @@ When the checked-out branch has an open pull request, the extension lets you:
 
 Authentication uses a Bitbucket **HTTP access token** (`Authorization: Bearer`). With a read-only token the extension works in read-only mode (comments are shown, editing is disabled).
 
-Tested against Bitbucket Data Center 8.19 (`git.tipsport.it`).
+Tested against Bitbucket Data Center 8.19.
 
 ## Install locally
 
@@ -45,7 +45,7 @@ Reload the window afterwards.
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `bitbucketPr.serverUrl` | `https://git.tipsport.it` | Server used when the remote host cannot be parsed. |
+| `bitbucketPr.serverUrl` | empty | Optional server URL used when the full URL cannot be derived from the remote, for example when the server has a context path. |
 | `bitbucketPr.refreshIntervalSeconds` | `60` | Polling interval; `0` disables polling. |
 | `bitbucketPr.readOnly` | `false` | Force read-only mode. |
 | `bitbucketPr.showOnLocalFiles` | `true` | Show threads on local files. |

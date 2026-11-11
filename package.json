@@ -29,14 +29,24 @@
   "extensionDependencies": [
     "vscode.git"
   ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "The extension reads Git repository metadata and sends authenticated requests to its configured Bitbucket server."
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "The extension requires a local Git working tree."
+    }
+  },
   "contributes": {
     "configuration": {
       "title": "Bitbucket DC Pull Requests",
       "properties": {
         "bitbucketPr.serverUrl": {
           "type": "string",
-          "default": "https://git.tipsport.it",
-          "description": "Bitbucket Data Center base URL. Used when the host cannot be derived from the git remote."
+          "default": "",
+          "description": "Optional Bitbucket Data Center base URL. Used when the full URL cannot be derived from the git remote, for example when the server has a context path."
         },
         "bitbucketPr.refreshIntervalSeconds": {
           "type": "number",

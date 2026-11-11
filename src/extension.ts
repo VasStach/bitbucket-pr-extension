@@ -23,7 +23,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const clients = new ClientRegistry(tokens);
   const repoContext = new RepoContext();
   const resolver = new PrResolver(repoContext, tokens, clients, access);
-  const fileProvider = new PrFileContentProvider(clients);
+  const fileProvider = new PrFileContentProvider(resolver);
   const overview = new OverviewDocumentProvider(resolver);
   const comments = new PrCommentController(resolver, repoContext, access);
   const tree = new PrTreeDataProvider(resolver);

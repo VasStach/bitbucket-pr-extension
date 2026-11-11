@@ -4,7 +4,7 @@ import { BitbucketError } from '../bitbucket/client';
 import type { Comment, FileDiff } from '../bitbucket/types';
 import { anchorStartLine, displayLine, positionToAnchor, type Side } from '../core/anchorMapper';
 import { openPrDiff } from '../diff/openDiff';
-import { parseOverviewUri, parsePrFileUri } from '../diff/prUris';
+import { isOverviewUriForModel, isPrFileUriForModel, parseOverviewUri, parsePrFileUri } from '../diff/prUris';
 import type { RepoContext, RepoInfo } from '../git/repoContext';
 import type { CommentSeverity } from '../bitbucket/types';
 import { isResolved, isResolvedTask, isTask } from '../core/commentState';
@@ -221,14 +221,14 @@ export class PrCommentController implements vscode.Disposable {
     }
     const prFile = parsePrFileUri(uri);
     if (prFile) {
-      if (prFile.prId !== model.id) {
+      if (!isPrFileUriForModel(prFile, model)) {
         return undefined;
       }
       return { type: 'prFile', model, path: prFile.path, side: prFile.side };
     }
     const overview = parseOverviewUri(uri);
     if (overview) {
-      return overview.prId === model.id ? { type: 'overview', model } : undefined;
+      return isOverviewUriForModel(overview, model) ? { type: 'overview', model } : undefined;
     }
     if (uri.scheme === 'file') {
       if (!vscode.workspace.getConfiguration('bitbucketPr').get<boolean>('showOnLocalFiles', true)) {

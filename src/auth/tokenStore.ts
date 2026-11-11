@@ -5,7 +5,6 @@ const SECRET_PREFIX = 'bitbucketPr.token:';
 
 /**
  * Stores one HTTP access token per Bitbucket host in VS Code SecretStorage.
- * A `BITBUCKET_TOKEN` environment variable is honoured as a development-only fallback.
  */
 export class TokenStore implements vscode.Disposable {
   private readonly _onDidChange = new vscode.EventEmitter<string>();
@@ -28,15 +27,7 @@ export class TokenStore implements vscode.Disposable {
   }
 
   async getToken(host: string): Promise<string | undefined> {
-    const stored = await this.secrets.get(this.key(host));
-    if (stored) {
-      return stored;
-    }
-    const env = process.env.BITBUCKET_TOKEN;
-    if (env && env.trim()) {
-      return env.trim();
-    }
-    return undefined;
+    return this.secrets.get(this.key(host));
   }
 
   async hasToken(host: string): Promise<boolean> {
