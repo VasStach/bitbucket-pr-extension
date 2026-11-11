@@ -1,3 +1,5 @@
+import { realpath } from 'node:fs/promises';
+import * as nodePath from 'node:path';
 import * as vscode from 'vscode';
 import { AccessState } from './auth/accessState';
 import { TokenStore } from './auth/tokenStore';
@@ -184,15 +186,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   register('bitbucketPr.openLocalFile', async (node?: PrTreeNode) => {
     const repo = repoContext.currentRepo;
-    const path = node?.file?.path;
-    if (!repo || !path) {
+    const repoPath = node?.file?.path;
+    if (!repo || !repoPath) {
       return;
     }
-    const uri = vscode.Uri.joinPath(repo.repository.rootUri, ...path.split('/'));
     try {
+      const uri = await localFileUri(repo.repository.rootUri, repoPath);
+      if (!uri) {
+        void vscode.window.showWarningMessage(`Bitbucket PR: refusing to open invalid path "${repoPath}".`);
+        return;
+      }
       await vscode.window.showTextDocument(uri, { preview: true });
     } catch {
-      void vscode.window.showWarningMessage(`Bitbucket PR: ${path} does not exist in the working tree.`);
+      void vscode.window.showWarningMessage(`Bitbucket PR: ${repoPath} does not exist in the working tree.`);
     }
   });
 
@@ -256,4 +262,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 export function deactivate(): void {
   // Disposables are handled through context.subscriptions.
+}
+
+async function localFileUri(root: vscode.Uri, repoPath: string): Promise<vscode.Uri | undefined> {
+  const segments = repoPath.split('/');
+  if (
+    root.scheme !== 'file'
+    || repoPath.includes('\0')
+    || repoPath.includes('\\')
+    || segments.some((segment) => !segment || segment === '.' || segment === '..')
+  ) {
+    return undefined;
+  }
+  const candidate = vscode.Uri.joinPath(root, ...segments);
+  const [realRoot, realCandidate] = await Promise.all([realpath(root.fsPath), realpath(candidate.fsPath)]);
+  const relative = nodePath.relative(realRoot, realCandidate);
+  if (!relative || relative === '..' || relative.startsWith(`..${nodePath.sep}`) || nodePath.isAbsolute(relative)) {
+    return undefined;
+  }
+  return candidate;
 }

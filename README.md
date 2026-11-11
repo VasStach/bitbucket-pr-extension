@@ -32,6 +32,13 @@ Reload the window afterwards.
 
 `Bitbucket PR: Sign Out` forgets the token.
 
+## Privacy and security
+
+- The extension has no telemetry or analytics and does not send data to its publisher.
+- Network requests go only to the Bitbucket server identified by the repository remote or explicitly configured by the user.
+- Access tokens are stored per server in the IDE secret storage and are sent only as authorization for Bitbucket API requests.
+- The extension is disabled in untrusted and virtual workspaces.
+
 ## Usage
 
 - Open a folder whose git remote points to the Bitbucket server (`https://<host>/scm/<project>/<repo>.git` or `ssh://git@<host>/<project>/<repo>.git`).

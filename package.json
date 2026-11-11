@@ -3,9 +3,17 @@
   "displayName": "Bitbucket DC Pull Requests",
   "description": "View, create and edit pull request comments (inline and general) for Bitbucket Data Center / Server directly in the IDE.",
   "version": "0.2.4",
-  "publisher": "tipsport-local",
+  "publisher": "Vaclav Stach",
   "license": "MIT",
-  "private": true,
+  "private": false,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/VasStach/bitbucket-pr-extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/VasStach/bitbucket-pr-extension/issues"
+  },
+  "homepage": "https://github.com/VasStach/bitbucket-pr-extension#readme",
   "engines": {
     "vscode": "^1.85.0"
   },

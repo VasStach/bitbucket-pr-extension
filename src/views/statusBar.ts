@@ -61,6 +61,8 @@ export class PrStatusBar implements vscode.Disposable {
     const spin = model.loading ? '$(sync~spin) ' : '';
     this.item.text = `${spin}$(git-pull-request) #${model.id}${openTasks ? ` · $(tasklist) ${openTasks}` : ''}`;
     const md = new vscode.MarkdownString(`**${model.pr.title}**\n\n#${model.id} · ${model.pr.state} · \`${model.pr.fromRef.displayId}\` → \`${model.pr.toRef.displayId}\`\n\n${openTasks} open task(s). Click to open the overview.`);
+    md.isTrusted = false;
+    md.supportHtml = false;
     this.item.tooltip = md;
     this.item.command = 'bitbucketPr.openOverview';
     this.item.show();

@@ -90,7 +90,7 @@ export class PrTreeDataProvider implements vscode.TreeDataProvider<PrTreeNode>, 
     const pr = model.pr;
     const header = new PrTreeNode('header', pr.title, vscode.TreeItemCollapsibleState.Expanded);
     header.description = `#${pr.id} · ${pr.state}${pr.draft ? ' · draft' : ''}`;
-    header.tooltip = new vscode.MarkdownString(`**${pr.title}**\n\n#${pr.id} by ${pr.author.user.displayName}\n\n\`${pr.fromRef.displayId}\` → \`${pr.toRef.displayId}\``);
+    header.tooltip = untrustedMarkdown(`**${pr.title}**\n\n#${pr.id} by ${pr.author.user.displayName}\n\n\`${pr.fromRef.displayId}\` → \`${pr.toRef.displayId}\``);
     header.iconPath = new vscode.ThemeIcon('git-pull-request');
     header.contextValue = 'bitbucketPr.header';
     header.command = { command: 'bitbucketPr.openOverview', title: 'Open Overview' };
@@ -182,7 +182,7 @@ export class PrTreeDataProvider implements vscode.TreeDataProvider<PrTreeNode>, 
     node.iconPath = task
       ? new vscode.ThemeIcon(isResolvedTask(c) ? 'pass' : 'tasklist', isResolvedTask(c) ? new vscode.ThemeColor('testing.iconPassed') : new vscode.ThemeColor('list.warningForeground'))
       : new vscode.ThemeIcon('comment');
-    node.tooltip = new vscode.MarkdownString(c.text);
+    node.tooltip = untrustedMarkdown(c.text);
     node.contextValue = 'bitbucketPr.comment';
     node.command = { command: 'bitbucketPr.goToComment', title: 'Go to Comment', arguments: [c.id] };
     return node;
@@ -193,6 +193,13 @@ export class PrTreeDataProvider implements vscode.TreeDataProvider<PrTreeNode>, 
     this._onDidChangeTreeData.dispose();
     this.disposables.forEach((d) => d.dispose());
   }
+}
+
+function untrustedMarkdown(value: string): vscode.MarkdownString {
+  const markdown = new vscode.MarkdownString(value);
+  markdown.isTrusted = false;
+  markdown.supportHtml = false;
+  return markdown;
 }
 
 function countReplies(c: Comment): number {
