@@ -5,7 +5,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); ver
 
 ## [0.3.0] – 2026-11-18
 
-First public release on the Visual Studio Marketplace and Open VSX.
+First public release on GitHub, Visual Studio Marketplace and Open VSX.
 
 ### Added
 
