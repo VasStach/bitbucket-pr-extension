@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 24 24">
+  <!-- Marketplace icon: pull-request graph whose branch nodes are "B" (Bitbucket) glyphs. -->
+  <rect width="24" height="24" rx="5" fill="#F4F5F7"/>
+  <g transform="translate(-1.2 0.2)" fill="none" stroke="#172B4D" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- source node -->
+    <circle cx="6" cy="4.6" r="2.2"/>
+    <!-- source line down into the left B stem -->
+    <path d="M6 6.8v9.4"/>
+    <!-- left B (stem shares x=6 with the line) -->
+    <path d="M6 16.2v5.6M6 16.2h1.8a1.4 1.4 0 0 1 0 2.8H6M6 19h2.1a1.4 1.4 0 0 1 0 2.8H6"/>
+    <!-- merge arrow: from right B stem up and left into the source line -->
+    <path d="M18 16.2V11a3 3 0 0 0-3-3h-4"/>
+    <path d="M13.5 5.5 11 8l2.5 2.5"/>
+    <!-- right B (stem shares x=18 with the arrow line) -->
+    <path d="M18 16.2v5.6M18 16.2h1.8a1.4 1.4 0 0 1 0 2.8H18M18 19h2.1a1.4 1.4 0 0 1 0 2.8H18"/>
+  </g>
+</svg>

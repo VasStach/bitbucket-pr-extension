@@ -13,3 +13,4 @@ tsconfig.test.json
 **/*.ts
 **/.DS_Store
 *.vsix
+media/icon.svg

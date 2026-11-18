@@ -14,16 +14,16 @@ Authentication uses a Bitbucket **HTTP access token** (`Authorization: Bearer`).
 
 Tested against Bitbucket Data Center 8.19.
 
-## Install locally
+## Install
 
-```bash
-npm install
-npm run package              # runs unit tests and produces bitbucket-dc-pr-<version>.vsix
-code --install-extension bitbucket-dc-pr-*.vsix
-cursor --install-extension bitbucket-dc-pr-*.vsix
-```
+Open the Extensions view (`Cmd/Ctrl+Shift+X`), search for **Bitbucket DC Pull Requests** and click *Install*.
 
-Reload the window afterwards.
+- VS Code installs from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vaclav-stach.bitbucket-dc-pr).
+- Cursor, VSCodium, Windsurf and other Open VSX based editors install from [Open VSX](https://open-vsx.org/extension/vaclav-stach/bitbucket-dc-pr).
+
+Manual install from a `.vsix` file (e.g. a [GitHub release](https://github.com/VasStach/bitbucket-pr-extension/releases)): *Extensions view → `…` → Install from VSIX…*, or `code --install-extension bitbucket-dc-pr-<version>.vsix`.
+
+Requires VS Code 1.85 or newer (or a compatible editor) with the built-in Git extension enabled.
 
 ## Sign in
 
@@ -73,6 +73,7 @@ npm install
 npm run watch     # esbuild in watch mode
 # F5 in VS Code → Extension Development Host
 npm test          # typecheck + unit tests (anchor mapping, remote parsing, REST client)
+npm run package   # tests + bitbucket-dc-pr-<version>.vsix for local installation
 ```
 
 Source layout: `src/bitbucket` (REST client + types), `src/core` (pure logic: remote parsing, anchor mapping), `src/auth`, `src/git`, `src/pr`, `src/comments`, `src/diff`, `src/views`.
