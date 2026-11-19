@@ -1,8 +1,8 @@
 {
   "name": "bitbucket-dc-pr",
-  "displayName": "Bitbucket DC Pull Requests",
+  "displayName": "Bitbucket Data Center Comments",
   "description": "View, create and edit pull request comments (inline and general) for Bitbucket Data Center / Server directly in the IDE.",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "vaclav-stach",
   "author": {
     "name": "Vaclav Stach"
