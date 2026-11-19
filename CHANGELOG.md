@@ -1,7 +1,13 @@
 # Changelog
 
-All notable changes to the **Bitbucket Data Center Comments** extension are documented here.
+All notable changes to the **Bitbucket Data Center PR Comments** extension are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
+
+## [0.3.2] – 2026-11-19
+
+### Changed
+
+- Display name is now **Bitbucket Data Center PR Comments**.
 
 ## [0.3.1] – 2026-11-18
 

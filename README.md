@@ -1,4 +1,4 @@
-# Bitbucket Data Center Comments
+# Bitbucket Data Center PR Comments
 
 VS Code / Cursor extension for **Bitbucket Data Center / Server** pull request review inside the IDE.
 
@@ -16,7 +16,7 @@ Tested against Bitbucket Data Center 8.19.
 
 ## Install
 
-Open the Extensions view (`Cmd/Ctrl+Shift+X`), search for **Bitbucket Data Center Comments** and click *Install*.
+Open the Extensions view (`Cmd/Ctrl+Shift+X`), search for **Bitbucket Data Center PR Comments** and click *Install*.
 
 - VS Code installs from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=vaclav-stach.bitbucket-dc-pr).
 - Cursor, VSCodium, Windsurf and other Open VSX based editors install from [Open VSX](https://open-vsx.org/extension/vaclav-stach/bitbucket-dc-pr).
