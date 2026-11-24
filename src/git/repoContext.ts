@@ -87,6 +87,23 @@ export class RepoContext implements vscode.Disposable {
     return best;
   }
 
+  /**
+   * Workspace file URI for a repository-relative path.
+   * Rejects absolute paths and `..` segments so a PR path cannot point outside the repository.
+   */
+  fileUri(info: RepoInfo, repoPath: string): vscode.Uri | undefined {
+    const segments = repoPath.split('/');
+    if (
+      info.repository.rootUri.scheme !== 'file'
+      || repoPath.includes('\0')
+      || repoPath.includes('\\')
+      || segments.some((segment) => !segment || segment === '.' || segment === '..')
+    ) {
+      return undefined;
+    }
+    return vscode.Uri.joinPath(info.repository.rootUri, ...segments);
+  }
+
   /** Path of `uri` relative to the repository root, using `/` separators. */
   relativePath(info: RepoInfo, uri: vscode.Uri): string | undefined {
     const root = info.repository.rootUri.fsPath.replace(/\/+$/, '');

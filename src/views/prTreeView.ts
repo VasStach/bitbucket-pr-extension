@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import type { ChangeType, Comment } from '../bitbucket/types';
-import { countTasks, isResolvedTask, isTask } from '../core/commentState';
+import { countTasks, isResolvedTask, isTask, isWholeFileComment, partitionComments } from '../core/commentState';
 import type { ChangedFile, PrModel } from '../pr/prModel';
 import type { PrResolver } from '../pr/prResolver';
 
@@ -157,7 +157,8 @@ export class PrTreeDataProvider implements vscode.TreeDataProvider<PrTreeNode>, 
       n.iconPath = new vscode.ThemeIcon('loading~spin');
       return [n];
     }
-    return fd.lineComments.map((c) => this.commentNode(c, true));
+    const split = partitionComments(fd.lineComments, fd.fileComments);
+    return [...split.lines, ...split.files].map((c) => this.commentNode(c, true));
   }
 
   private commentNode(c: Comment, inline = false): PrTreeNode {
@@ -171,8 +172,10 @@ export class PrTreeDataProvider implements vscode.TreeDataProvider<PrTreeNode>, 
     if (nested.open) {
       parts.push(`${nested.open} open task${nested.open === 1 ? '' : 's'} in replies`);
     }
-    if (inline && c.anchor?.line !== undefined) {
+    if (inline && c.anchor?.line !== undefined && c.anchor.line >= 1) {
       parts.push(`L${c.anchor.line}`);
+    } else if (inline && isWholeFileComment(c)) {
+      parts.push('whole file');
     }
     if (replies) {
       parts.push(`${replies} repl${replies === 1 ? 'y' : 'ies'}`);

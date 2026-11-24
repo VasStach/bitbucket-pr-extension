@@ -4,10 +4,10 @@ import { BitbucketError } from '../bitbucket/client';
 import type { Comment, FileDiff } from '../bitbucket/types';
 import { anchorStartLine, displayLine, positionToAnchor, type Side } from '../core/anchorMapper';
 import { openPrDiff } from '../diff/openDiff';
-import { isOverviewUriForModel, isPrFileUriForModel, parseOverviewUri, parsePrFileUri } from '../diff/prUris';
+import { isOverviewUriForModel, isPrFileUriForModel, makePrFileUri, parseOverviewUri, parsePrFileUri, prIdentityForModel } from '../diff/prUris';
 import type { RepoContext, RepoInfo } from '../git/repoContext';
 import type { CommentSeverity } from '../bitbucket/types';
-import { isResolved, isResolvedTask, isTask } from '../core/commentState';
+import { isResolved, isResolvedTask, isTask, isWholeFileComment, partitionComments } from '../core/commentState';
 import { flattenThread, type PrModel } from '../pr/prModel';
 import type { PrResolver } from '../pr/prResolver';
 import { ContextKey, setContext } from '../util/contextKeys';
@@ -103,6 +103,9 @@ function toMarkdown(text: string): vscode.MarkdownString {
  *  - PR diff documents (`bbpr:` FROM / TO sides),
  *  - local files of the checked-out branch (mapped to the TO side),
  *  - the PR overview document (general comments).
+ *
+ * Local-file threads stay registered after the editor closes, so the Comments
+ * panel lists every commented file. Activating an entry opens that file on the comment's line.
  */
 export class PrCommentController implements vscode.Disposable {
   private readonly controller: vscode.CommentController;
@@ -133,7 +136,7 @@ export class PrCommentController implements vscode.Disposable {
       access.onDidChange(() => this.scheduleSync(false, true)),
       repoContext.onDidChangeWorkingTree(() => this.scheduleSync(false, true)),
       vscode.workspace.onDidOpenTextDocument(() => this.scheduleSync()),
-      vscode.workspace.onDidCloseTextDocument((doc) => this.disposeThreadsFor(doc.uri)),
+      vscode.workspace.onDidCloseTextDocument(() => this.scheduleSync()),
       vscode.window.onDidChangeVisibleTextEditors(() => this.scheduleSync()),
       vscode.workspace.onDidChangeConfiguration((e) => {
         if (e.affectsConfiguration('bitbucketPr.showOnLocalFiles')) {
@@ -313,9 +316,11 @@ export class PrCommentController implements vscode.Disposable {
     for (const doc of vscode.workspace.textDocuments) {
       docs.set(doc.uri.toString(), doc);
     }
-    // Dispose threads of documents no longer open.
+    const panel = await this.panelTargets(docs);
+    const panelKeys = new Set(panel.map((target) => target.uri.toString()));
+    // Drop threads whose document is closed and that are not part of the workspace-wide list.
     for (const key of [...this.threadsByDoc.keys()]) {
-      if (!docs.has(key)) {
+      if (!docs.has(key) && !panelKeys.has(key)) {
         this.disposeThreadsFor(vscode.Uri.parse(key));
       }
     }
@@ -326,6 +331,99 @@ export class PrCommentController implements vscode.Disposable {
         log.error(`Comment sync failed for ${doc.uri.toString()}`, e);
       }
     }
+    for (const target of panel) {
+      try {
+        await this.syncTarget(target.uri, target.kind, target.lineCount);
+      } catch (e) {
+        log.error(`Comment sync failed for ${target.uri.toString()}`, e);
+      }
+    }
+  }
+
+  /**
+   * One Comments-panel entry per commented file that is not already open.
+   * A click on the entry reveals `uri`, which is the working-tree file when it
+   * exists and the PR file contents otherwise (deleted files).
+   */
+  private async panelTargets(openDocs: Map<string, vscode.TextDocument>): Promise<{ uri: vscode.Uri; kind: DocKind; lineCount: number }[]> {
+    const model = this.model;
+    const repo = this.repoContext.currentRepo;
+    if (!model || !repo) {
+      return [];
+    }
+    if (!vscode.workspace.getConfiguration('bitbucketPr').get<boolean>('showOnLocalFiles', true)) {
+      return [];
+    }
+    if (
+      repo.remote.projectKey.toLowerCase() !== model.repo.projectKey.toLowerCase()
+      || repo.remote.repoSlug.toLowerCase() !== model.repo.repoSlug.toLowerCase()
+    ) {
+      return [];
+    }
+    const targets: { uri: vscode.Uri; kind: DocKind; lineCount: number }[] = [];
+    for (const cf of model.changes) {
+      const fd = model.getLoadedDiff(cf.path);
+      if (!fd) {
+        if (cf.commentCount > 0) {
+          this.ensureDiffLoaded(model, cf.path);
+        }
+        continue;
+      }
+      const split = partitionComments(fd.lineComments, fd.fileComments);
+      if (split.lines.length === 0 && split.files.length === 0) {
+        continue;
+      }
+      const local = this.repoContext.fileUri(repo, cf.path);
+      if (local) {
+        let exists = false;
+        try {
+          await vscode.workspace.fs.stat(local);
+          exists = true;
+        } catch {
+          exists = false;
+        }
+        if (exists) {
+          if (!openDocs.has(local.toString())) {
+            const kind: DocKind = { type: 'local', model, path: cf.path, repo };
+            targets.push({ uri: local, kind, lineCount: 1_000_000 });
+          }
+          continue;
+        }
+      }
+      const side: Side = cf.change.type === 'DELETE' ? 'FROM' : 'TO';
+      const uri = this.prSideUri(model, cf, side);
+      if (openDocs.has(uri.toString())) {
+        continue;
+      }
+      // `path` is the diff-cache key (destination path). The URI carries the path on that side.
+      const kind: DocKind = { type: 'prFile', model, path: cf.path, side };
+      targets.push({ uri, kind, lineCount: 1_000_000 });
+    }
+    return targets;
+  }
+
+  private prSideUri(model: PrModel, file: { path: string; srcPath?: string; change: { type: string } }, side: Side): vscode.Uri {
+    const fd = model.getLoadedDiff(file.path);
+    const path = side === 'FROM' ? (file.srcPath ?? file.path) : file.path;
+    const missing = (side === 'FROM' && file.change.type === 'ADD') || (side === 'TO' && file.change.type === 'DELETE');
+    const commit = missing ? '' : side === 'FROM' ? (fd?.fromHash || model.targetCommit) : (fd?.toHash || model.sourceCommit);
+    return makePrFileUri({ ...prIdentityForModel(model), side, path, commit });
+  }
+
+  private ensureDiffLoaded(model: PrModel, path: string): void {
+    const loadKey = `${model.id}|${path}`;
+    if (this.attemptedDiffLoads.has(loadKey)) {
+      return;
+    }
+    this.attemptedDiffLoads.add(loadKey);
+    void model
+      .loadFileDiff(path)
+      .then((loaded) => {
+        if (loaded) {
+          this.scheduleSync();
+        }
+      })
+      .catch((e) => log.warn(`Diff load failed for ${path}: ${(e as Error).message}`));
   }
 
   private async syncDocument(doc: vscode.TextDocument): Promise<void> {
@@ -334,8 +432,12 @@ export class PrCommentController implements vscode.Disposable {
       this.disposeThreadsFor(doc.uri);
       return;
     }
-    const desired = await this.desiredThreads(kind, doc);
-    const key = doc.uri.toString();
+    await this.syncTarget(doc.uri, kind, doc.lineCount);
+  }
+
+  private async syncTarget(uri: vscode.Uri, kind: DocKind, lineCount: number): Promise<void> {
+    const desired = await this.desiredThreads(kind, uri, lineCount);
+    const key = uri.toString();
     let existing = this.threadsByDoc.get(key);
     if (!existing) {
       existing = new Map();
@@ -348,7 +450,7 @@ export class PrCommentController implements vscode.Disposable {
       if (thread) {
         this.updateThread(thread, kind.model, d);
       } else {
-        const created = this.controller.createCommentThread(doc.uri, d.range, []);
+        const created = this.controller.createCommentThread(uri, d.range, []);
         existing.set(d.root.id, created);
         this.updateThread(created, kind.model, d, true);
       }
@@ -361,9 +463,9 @@ export class PrCommentController implements vscode.Disposable {
     }
   }
 
-  private async desiredThreads(kind: DocKind, doc: vscode.TextDocument): Promise<DesiredThread[]> {
+  private async desiredThreads(kind: DocKind, uri: vscode.Uri, lineCount: number): Promise<DesiredThread[]> {
     const out: DesiredThread[] = [];
-    const lastLine = Math.max(0, doc.lineCount - 1);
+    const lastLine = Math.max(0, lineCount - 1);
     const clamp = (line1: number) => Math.min(lastLine, Math.max(0, line1 - 1));
 
     if (kind.type === 'overview') {
@@ -375,26 +477,15 @@ export class PrCommentController implements vscode.Disposable {
 
     const fd = kind.model.getLoadedDiff(kind.path);
     if (!fd) {
-      // Load lazily (once per path and model), then re-sync.
-      const loadKey = `${kind.model.id}|${kind.path}`;
-      if (!this.attemptedDiffLoads.has(loadKey)) {
-        this.attemptedDiffLoads.add(loadKey);
-        void kind.model
-          .loadFileDiff(kind.path)
-          .then((loaded) => {
-            if (loaded) {
-              this.scheduleSync();
-            }
-          })
-          .catch((e) => log.warn(`Diff load failed for ${kind.path}: ${(e as Error).message}`));
-      }
+      this.ensureDiffLoaded(kind.model, kind.path);
       return out;
     }
     const diff: FileDiff = fd.diff;
     const side: Side = kind.type === 'prFile' ? kind.side : 'TO';
-    const staleness = kind.type === 'local' ? this.localStaleness(kind, doc.uri) : undefined;
+    const staleness = kind.type === 'local' ? this.localStaleness(kind, uri) : undefined;
+    const split = partitionComments(fd.lineComments, fd.fileComments);
 
-    for (const root of fd.lineComments) {
+    for (const root of split.lines) {
       const anchor = root.anchor;
       if (!anchor || anchor.line === undefined) {
         continue;
@@ -430,6 +521,23 @@ export class PrCommentController implements vscode.Disposable {
         path: fd.path,
         side,
         label: labels.join(' · ') || undefined,
+      });
+    }
+    for (const root of split.files) {
+      const fileSide: Side = root.anchor?.fileType === 'FROM' ? 'FROM' : 'TO';
+      if (kind.type === 'prFile' && fileSide !== side) {
+        continue;
+      }
+      const labels = ['whole file'];
+      if (staleness) {
+        labels.push(`outdated – ${staleness}`);
+      }
+      out.push({
+        root,
+        range: new vscode.Range(0, 0, 0, 0),
+        path: fd.path,
+        side,
+        label: labels.join(' · '),
       });
     }
     return out;
@@ -668,8 +776,11 @@ export class PrCommentController implements vscode.Disposable {
     }
     const fd = await model.loadFileDiff(found.path);
     const anchor = found.root.anchor;
-    const pos = anchor ? displayLine(fd?.diff, anchor, anchor.lineType === 'REMOVED' || anchor.fileType === 'FROM' ? 'FROM' : 'TO') : undefined;
-    await openPrDiff(model, cf, { line: pos?.line });
+    const wholeFile = isWholeFileComment(found.root);
+    const pos = anchor && !wholeFile
+      ? displayLine(fd?.diff, anchor, anchor.lineType === 'REMOVED' || anchor.fileType === 'FROM' ? 'FROM' : 'TO')
+      : undefined;
+    await openPrDiff(model, cf, { line: wholeFile ? 1 : pos?.line });
   }
 
   // ---------------------------------------------------------------- error handling

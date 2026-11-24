@@ -3,6 +3,13 @@
 All notable changes to the **Bitbucket Data Center PR Comments** extension are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] – 2026-11-24
+
+### Fixed
+
+- The Comments panel lists comment threads for every file in the pull request, including files that are not open. Clicking an entry opens that file on the comment's line.
+- Comments attached to a whole file, rather than a line, are shown on the first line of that file and in the Comments panel and the pull request tree.
+
 ## [0.3.2] – 2026-11-19
 
 ### Changed

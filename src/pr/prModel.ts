@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { BitbucketClient, BitbucketError, type RepoCoords } from '../bitbucket/client';
 import type { Change, Comment, CommentAnchor, CommentSeverity, CreateCommentRequest, FileDiff, PullRequest } from '../bitbucket/types';
 import { attachAnchors } from '../core/attachAnchors';
-import { countTasks, isOpenTask } from '../core/commentState';
+import { countTasks, isOpenTask, partitionComments } from '../core/commentState';
 import { log } from '../util/logger';
 
 export interface FileDiffData {
@@ -109,7 +109,8 @@ export class PrModel implements vscode.Disposable {
     const loadedPaths = new Set<string>();
     for (const fd of this.fileDiffs.values()) {
       loadedPaths.add(fd.path);
-      n += countTasks(fd.lineComments).open;
+      const split = partitionComments(fd.lineComments, fd.fileComments);
+      n += countTasks(split.lines).open + countTasks(split.files).open;
     }
     for (const [path, counts] of this.commentCountsFromActivities) {
       if (!loadedPaths.has(path)) {
@@ -289,8 +290,9 @@ export class PrModel implements vscode.Disposable {
     for (const cf of this._changes) {
       const fd = this.fileDiffs.get(cf.path);
       if (fd) {
-        cf.commentCount = fd.lineComments.length;
-        cf.openTaskCount = countTasks(fd.lineComments).open;
+        const split = partitionComments(fd.lineComments, fd.fileComments);
+        cf.commentCount = split.lines.length + split.files.length;
+        cf.openTaskCount = countTasks(split.lines).open + countTasks(split.files).open;
       }
     }
   }
@@ -378,7 +380,8 @@ export class PrModel implements vscode.Disposable {
       return general;
     }
     for (const fd of this.fileDiffs.values()) {
-      const r = search(fd.lineComments, fd.path);
+      const split = partitionComments(fd.lineComments, fd.fileComments);
+      const r = search([...split.lines, ...split.files], fd.path);
       if (r) {
         return r;
       }
